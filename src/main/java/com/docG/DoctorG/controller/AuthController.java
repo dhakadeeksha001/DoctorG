@@ -7,6 +7,9 @@ import com.docG.DoctorG.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.docG.DoctorG.dto.response.ApiResponse;
+import com.docG.DoctorG.dto.response.RefreshTokenResponse;
+import com.docG.DoctorG.dto.request.RefreshTokenRequest;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -31,4 +34,18 @@ public class AuthController {
         return ResponseEntity.ok(
                 authService.login(request));
     }
-}
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refreshToken(
+            @RequestBody RefreshTokenRequest request) {
+        
+        RefreshTokenResponse response = authService.refreshToken(request);
+
+        return ResponseEntity.ok(
+                ApiResponse.<RefreshTokenResponse>builder()
+                        .success(true)
+                        .message("Token refreshed successfully")
+                        .data(response)
+                        .build());
+    }
+}

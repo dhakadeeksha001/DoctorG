@@ -2,9 +2,16 @@ package com.docG.DoctorG.dto.response;
 
 import lombok.*;
 
-@Data
+@Getter
+@Setter
+@Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class AuthResponse {
+
+    private String accessToken;
+
+    private String refreshToken;
     
-    private String token;
+    private UserResponse user;
 }
