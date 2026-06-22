@@ -1,6 +1,6 @@
 package com.docG.DoctorG.security.service;
 
-import com.docG.DoctorG.entity.user;
+import com.docG.DoctorG.entity.User;
 import com.docG.DoctorG.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.*;
@@ -16,7 +16,7 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) 
             throws UsernameNotFoundException {
 
-        user user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> 
                     new UsernameNotFoundException("User not found"));
         
@@ -24,8 +24,8 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .builder()
                 .username(user.getEmail())
                 .password(user.getPassword())
-                .authorities("USER")
+                .authorities("ROLE_"+ user.getRole().name())
                 .build();
     }
     
-}
+}
