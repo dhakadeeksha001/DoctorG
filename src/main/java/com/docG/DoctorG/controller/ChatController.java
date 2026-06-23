@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.docG.DoctorG.agent.SymptomCollectionAgent;
 
 @RestController
-@RequestMapping("/api/chat")
+@RequestMapping("/api/patient/chat")
 @RequiredArgsConstructor
 public class ChatController {
 

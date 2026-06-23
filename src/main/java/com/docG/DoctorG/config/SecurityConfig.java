@@ -19,58 +19,53 @@ import com.docG.DoctorG.security.CustomAccessDeniedHandler;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtFilter;
-    private final JwtAuthenticationEntryPoint authEntryPoint;
-    private final CustomAccessDeniedHandler accessDeniedHandler;
+        private final JwtAuthenticationFilter jwtFilter;
+        private final JwtAuthenticationEntryPoint authEntryPoint;
+        private final CustomAccessDeniedHandler accessDeniedHandler;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http) throws Exception {
+        @Bean
+        public SecurityFilterChain securityFilterChain(
+                        HttpSecurity http) throws Exception {
 
-        http
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(
-                        session -> session
-                                .sessionCreationPolicy(
-                                        SessionCreationPolicy.STATELESS
-                                )
-                )
-                .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint(authEntryPoint)
-                        .accessDeniedHandler(accessDeniedHandler)
-                )
-                .authorizeHttpRequests(auth -> auth
+                http
+                                .csrf(csrf -> csrf.disable())
+                                .sessionManagement(
+                                                session -> session
+                                                                .sessionCreationPolicy(
+                                                                                SessionCreationPolicy.STATELESS))
+                                .exceptionHandling(exception -> exception
+                                                .authenticationEntryPoint(authEntryPoint)
+                                                .accessDeniedHandler(accessDeniedHandler))
+                                .authorizeHttpRequests(auth -> auth
 
-                        .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
+                                                .requestMatchers(
+                                                                "/api/auth/**")
+                                                .permitAll()
 
-                        .requestMatchers(
-                                "/api/admin/**"
-                        ).hasRole("ADMIN")
+                                                .requestMatchers(
+                                                                "/api/admin/**")
+                                                .hasRole("ADMIN")
 
-                        .requestMatchers(
-                                "/api/doctor/**"
-                        ).hasRole("DOCTOR")
+                                                .requestMatchers(
+                                                                "/api/doctor/**")
+                                                .hasRole("DOCTOR")
 
-                        .requestMatchers(
-                                "/api/patient/**"
-                        ).hasRole("PATIENT")
+                                                .requestMatchers(
+                                                                "/api/patient/**")
+                                                .hasRole("PATIENT")
 
-                        .anyRequest()
-                        .authenticated()
-                )
-                .addFilterBefore(
-                        jwtFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                                                .anyRequest()
+                                                .authenticated())
+                                .addFilterBefore(
+                                                jwtFilter,
+                                                UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 
-    @Bean
-    public PasswordEncoder passwordEncoder() {
+        @Bean
+        public PasswordEncoder passwordEncoder() {
 
-        return new BCryptPasswordEncoder();
-    }
+                return new BCryptPasswordEncoder();
+        }
 }
