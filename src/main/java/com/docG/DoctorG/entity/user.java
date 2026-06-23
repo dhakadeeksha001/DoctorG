@@ -3,6 +3,7 @@ package com.docG.DoctorG.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Data
 @Entity
 @Table(name = "users")
 @Getter
