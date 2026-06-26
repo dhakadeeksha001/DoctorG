@@ -6,8 +6,10 @@ import com.docG.DoctorG.service.ChatService;
 
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.docG.DoctorG.agent.SymptomCollectionAgent;
 
 @RestController

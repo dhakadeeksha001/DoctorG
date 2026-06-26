@@ -22,5 +22,5 @@ langchain4j:
     chat-model:
       base-url: http://localhost:11434
       model-name: qwen3:1.7b
-      temperature: 0.2
+      temperature: 0.1
       timeout: PT3M
