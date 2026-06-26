@@ -17,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.docG.DoctorG.serviceimpl.AdminServiceImpl;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,7 +41,7 @@ class AdminServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @InjectMocks
-    private AdminService adminService;
+    private AdminServiceImpl adminService;
 
     private AddDoctorRequest request;
 

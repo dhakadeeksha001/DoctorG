@@ -17,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.docG.DoctorG.serviceimpl.DoctorServiceImpl;
+
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -36,7 +38,7 @@ class DoctorServiceTest {
     private PasswordEncoder passwordEncoder;
 
     @InjectMocks
-    private DoctorService doctorService;
+    private DoctorServiceImpl doctorService;
 
     private User user;
     private DoctorProfile profile;
@@ -129,5 +131,20 @@ class DoctorServiceTest {
         assertThrows(ApiException.class, () -> doctorService.changePassword("john@example.com", passwordReq));
 
         verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void searchDoctors_Success() {
+        java.util.List<DoctorProfile> mockProfiles = java.util.List.of(profile);
+        when(doctorProfileRepository.searchDoctors("Boston", "Cardiology")).thenReturn(mockProfiles);
+
+        java.util.List<DoctorProfileResponse> results = doctorService.searchDoctors("Boston", "Cardiology");
+
+        assertNotNull(results);
+        assertEquals(1, results.size());
+        assertEquals("Dr. John", results.get(0).getName());
+        assertEquals("Cardiology", results.get(0).getSpecialization());
+
+        verify(doctorProfileRepository).searchDoctors("Boston", "Cardiology");
     }
 }

@@ -54,6 +54,10 @@ public class SecurityConfig {
                                                                 "/api/patient/**")
                                                 .hasRole("PATIENT")
 
+                                                .requestMatchers(
+                                                                "/api/doctors/search")
+                                                .hasAnyRole("ADMIN", "PATIENT")
+
                                                 .anyRequest()
                                                 .authenticated())
                                 .addFilterBefore(
