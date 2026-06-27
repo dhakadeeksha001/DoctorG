@@ -12,7 +12,7 @@ public class MemoryConfig {
     @Bean
     public ChatMemoryProvider chatMemoryProvider() {
 
-        return memoryId -> MessageWindowChatMemory.withMaxMessages(20);
+        return memoryId -> MessageWindowChatMemory.withMaxMessages(10);
     }
 
 }
