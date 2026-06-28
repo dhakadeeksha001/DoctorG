@@ -170,31 +170,82 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { toast } from 'react-toastify';
-import { updateProfile, reset } from '../features/auth/authSlice';
+import axios from 'axios';
+import { updateProfile, updateDoctorProfile, reset } from '../features/auth/authSlice';
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Profile = () => {
   const dispatch = useDispatch();
   const { user, isSuccess, isError, message, isProfileLoading } = useSelector((state) => state.auth);
 
-  // State for the profile fields
+  const isDoctor = user?.role?.toLowerCase() === 'doctor';
+  const [activeTab, setActiveTab] = useState('details'); // 'details' | 'password'
+
+  // State for the profile fields (contains both user and doctor specific fields)
   const [formData, setFormData] = useState({
     name: '',
     email: '', 
     age: '',
     city: '',
-    gender: ''
+    gender: '',
+    experienceYears: '',
+    qualification: '',
+    bio: '',
+    clinicAddress: '',
+    consultationFee: ''
   });
 
-  // Prefill user details when page loads or user changes
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Prefill details
   useEffect(() => {
     if (user) {
-      setFormData({
-        name: user.name || '',
-        email: user.email || '',
-        age: user.age !== null && user.age !== undefined ? user.age : '',
-        city: user.city || '',
-        gender: user.gender || ''
-      });
+      if (isDoctor) {
+        const fetchDoctorProfile = async () => {
+          try {
+            const response = await axios.get(`${API_URL}/doctor/profile`, {
+              headers: { Authorization: `Bearer ${user.token}` }
+            });
+            if (response.data && response.data.success) {
+              const docData = response.data.data;
+              setFormData({
+                name: user.name || '',
+                email: user.email || '',
+                age: docData.age !== null && docData.age !== undefined ? docData.age : '',
+                city: docData.city || '',
+                gender: docData.gender || '',
+                experienceYears: docData.experienceYears !== null && docData.experienceYears !== undefined ? docData.experienceYears : '',
+                qualification: docData.qualification || '',
+                bio: docData.bio || '',
+                clinicAddress: docData.clinicAddress || '',
+                consultationFee: docData.consultationFee !== null && docData.consultationFee !== undefined ? docData.consultationFee : ''
+              });
+            }
+          } catch (error) {
+            toast.error("Failed to load doctor profile details.");
+          }
+        };
+        fetchDoctorProfile();
+      } else {
+        setFormData({
+          name: user.name || '',
+          email: user.email || '',
+          age: user.age !== null && user.age !== undefined ? user.age : '',
+          city: user.city || '',
+          gender: user.gender || '',
+          experienceYears: '',
+          qualification: '',
+          bio: '',
+          clinicAddress: '',
+          consultationFee: ''
+        });
+      }
     }
   }, [user]);
 
@@ -223,25 +274,68 @@ const Profile = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Check if changes were actually made
-    const hasChanges = 
-      formData.name !== (user?.name || '') ||
-      Number(formData.age) !== (user?.age || 0) ||
-      formData.city !== (user?.city || '') ||
-      formData.gender !== (user?.gender || '');
+    if (isDoctor) {
+      dispatch(updateDoctorProfile({
+        age: formData.age ? Number(formData.age) : null,
+        gender: formData.gender,
+        city: formData.city,
+        experienceYears: formData.experienceYears ? Number(formData.experienceYears) : null,
+        qualification: formData.qualification,
+        bio: formData.bio,
+        clinicAddress: formData.clinicAddress,
+        consultationFee: formData.consultationFee ? Number(formData.consultationFee) : null
+      }));
+    } else {
+      // Check if changes were actually made
+      const hasChanges = 
+        formData.name !== (user?.name || '') ||
+        Number(formData.age) !== (user?.age || 0) ||
+        formData.city !== (user?.city || '') ||
+        formData.gender !== (user?.gender || '');
 
-    if (!hasChanges) {
-      toast.info('No changes to save.');
+      if (!hasChanges) {
+        toast.info('No changes to save.');
+        return;
+      }
+
+      dispatch(updateProfile({
+        name: formData.name,
+        age: formData.age ? Number(formData.age) : null,
+        city: formData.city,
+        gender: formData.gender
+      }));
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const { name, value } = e.target;
+    setPasswordData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match!");
       return;
     }
-
-    // Call update API
-    dispatch(updateProfile({
-      name: formData.name,
-      age: formData.age ? Number(formData.age) : null,
-      city: formData.city,
-      gender: formData.gender
-    }));
+    setIsChangingPassword(true);
+    try {
+      const response = await axios.put(`${API_URL}/doctor/change-password`, {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      }, {
+        headers: { Authorization: `Bearer ${user.token}` }
+      });
+      if (response.data && response.data.success) {
+        toast.success("Password updated successfully!");
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+    } catch (error) {
+      const msg = error.response?.data?.message || error.message || "Failed to update password";
+      toast.error(msg);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   return (
@@ -250,129 +344,322 @@ const Profile = () => {
       {/* --- Top Header --- */}
       <header className="bg-teal-600 text-white p-4 shadow-md shrink-0">
         <div className="max-w-3xl mx-auto">
-          <h1 className="text-xl font-bold tracking-wide">My Health Profile</h1>
-          <p className="text-teal-100 text-sm mt-1">Manage your personal and demographic details</p>
+          <h1 className="text-xl font-bold tracking-wide">
+            {isDoctor ? 'Doctor Profile Settings' : 'My Health Profile'}
+          </h1>
+          <p className="text-teal-100 text-sm mt-1">
+            {isDoctor ? 'Manage your medical professional settings and account details' : 'Manage your personal and demographic details'}
+          </p>
         </div>
       </header>
 
+      {/* --- Tab Navigation (Only for Doctor) --- */}
+      {isDoctor && (
+        <div className="max-w-3xl mx-auto mt-8 w-full px-4 sm:px-8">
+          <div className="bg-slate-100 p-1.5 rounded-2xl flex items-center gap-1 shrink-0 w-max border border-slate-200">
+            <button 
+              onClick={() => setActiveTab('details')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'details' 
+                  ? 'bg-white text-slate-900 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              🩺 Profile Details
+            </button>
+            <button 
+              onClick={() => setActiveTab('password')}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'password' 
+                  ? 'bg-white text-slate-900 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              🔐 Change Password
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- Profile Form Area --- */}
       <main className="flex-1 overflow-y-auto p-4 sm:p-8">
-        <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10">
-          
-          <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
-            <div className="bg-teal-100 text-teal-700 w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-inner">
-              👤
-            </div>
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800">Personal Information</h2>
-              <p className="text-gray-500 text-sm">Update your details to help us personalize your experience.</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
+        
+        {/* Profile Details Tab */}
+        {activeTab === 'details' && (
+          <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10">
             
-            {/* Grid for two-column layout on larger screens */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
+              <div className="bg-teal-100 text-teal-700 w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-inner">
+                {isDoctor ? '🩺' : '👤'}
+              </div>
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-800">
+                  {isDoctor ? 'Professional Information' : 'Personal Information'}
+                </h2>
+                <p className="text-gray-500 text-sm">
+                  {isDoctor ? 'Update your medical settings, fee, and credentials.' : 'Update your details to help us personalize your experience.'}
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
               
-              {/* Name Field */}
-              <div className="flex flex-col space-y-1">
-                <label htmlFor="name" className="text-sm font-medium text-gray-700">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  placeholder="Enter your full name"
-                  required
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
-                />
-              </div>
+              {/* Grid for layout */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                
+                {/* Name Field - Read only if Doctor */}
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="name" className="text-sm font-medium text-gray-700">Full Name</label>
+                  <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter your full name"
+                    required
+                    disabled={isDoctor}
+                    className={`px-4 py-2.5 border rounded-lg focus:outline-none transition-all text-gray-800 ${
+                      isDoctor 
+                        ? 'border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed' 
+                        : 'border-gray-300 focus:ring-2 focus:ring-teal-500 focus:border-transparent'
+                    }`}
+                  />
+                </div>
 
-              {/* Email Field (Fixed/Disabled) */}
-              <div className="flex flex-col space-y-1">
-                <label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address (Cannot be changed)</label>
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  value={formData.email}
-                  disabled
-                  readOnly
-                  className="px-4 py-2.5 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed focus:outline-none"
-                />
-              </div>
+                {/* Email Field (Fixed/Disabled) */}
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700">Email Address (Cannot be changed)</label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    disabled
+                    readOnly
+                    className="px-4 py-2.5 border border-gray-200 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed focus:outline-none"
+                  />
+                </div>
 
-              {/* Age Field */}
-              <div className="flex flex-col space-y-1">
-                <label htmlFor="age" className="text-sm font-medium text-gray-700">Age</label>
-                <input
-                  type="number"
-                  id="age"
-                  name="age"
-                  value={formData.age}
-                  onChange={handleChange}
-                  placeholder="e.g., 28"
-                  min="0"
-                  max="120"
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
-                />
-              </div>
+                {/* Age Field */}
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="age" className="text-sm font-medium text-gray-700">Age</label>
+                  <input
+                    type="number"
+                    id="age"
+                    name="age"
+                    value={formData.age}
+                    onChange={handleChange}
+                    placeholder="e.g., 35"
+                    min="0"
+                    max="120"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                  />
+                </div>
 
-              {/* City Field */}
-              <div className="flex flex-col space-y-1">
-                <label htmlFor="city" className="text-sm font-medium text-gray-700">City</label>
-                <input
-                  type="text"
-                  id="city"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  placeholder="e.g., New York"
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
-                />
-              </div>
+                {/* City Field */}
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="city" className="text-sm font-medium text-gray-700">City</label>
+                  <input
+                    type="text"
+                    id="city"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    placeholder="e.g., New York"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                  />
+                </div>
 
-              {/* Gender Field */}
-              <div className="flex flex-col space-y-1 sm:col-span-2">
-                <label htmlFor="gender" className="text-sm font-medium text-gray-700">Gender</label>
-                <select
-                  id="gender"
-                  name="gender"
-                  value={formData.gender}
-                  onChange={handleChange}
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800 bg-white"
-                >
-                  <option value="" disabled>Select your gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Non-binary">Non-binary</option>
-                  <option value="Prefer not to say">Prefer not to say</option>
-                </select>
-              </div>
+                {/* Gender Field */}
+                <div className="flex flex-col space-y-1 sm:col-span-2">
+                  <label htmlFor="gender" className="text-sm font-medium text-gray-700">Gender</label>
+                  <select
+                    id="gender"
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800 bg-white"
+                  >
+                    <option value="" disabled>Select your gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Non-binary">Non-binary</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
 
-            </div>
-
-            {/* Submit Button Area */}
-            <div className="pt-4 flex items-center justify-end border-t border-gray-100">
-              <button
-                type="submit"
-                disabled={isProfileLoading}
-                className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-8 py-3 rounded-xl font-semibold transition-colors duration-200 shadow-sm flex items-center gap-2"
-              >
-                {isProfileLoading ? (
+                {/* Doctor Specific Fields */}
+                {isDoctor && (
                   <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full inline-block" />
-                    Saving...
+                    <div className="flex flex-col space-y-1">
+                      <label htmlFor="experienceYears" className="text-sm font-medium text-gray-700">Years of Experience</label>
+                      <input
+                        type="number"
+                        id="experienceYears"
+                        name="experienceYears"
+                        value={formData.experienceYears}
+                        onChange={handleChange}
+                        placeholder="e.g., 12"
+                        min="0"
+                        className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label htmlFor="qualification" className="text-sm font-medium text-gray-700">Qualification</label>
+                      <input
+                        type="text"
+                        id="qualification"
+                        name="qualification"
+                        value={formData.qualification}
+                        onChange={handleChange}
+                        placeholder="e.g., MBBS, MD Cardiologist"
+                        className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1">
+                      <label htmlFor="consultationFee" className="text-sm font-medium text-gray-700">Consultation Fee ($)</label>
+                      <input
+                        type="number"
+                        id="consultationFee"
+                        name="consultationFee"
+                        value={formData.consultationFee}
+                        onChange={handleChange}
+                        placeholder="e.g., 150"
+                        min="0"
+                        className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1 sm:col-span-2">
+                      <label htmlFor="clinicAddress" className="text-sm font-medium text-gray-700">Clinic / Hospital Address</label>
+                      <input
+                        type="text"
+                        id="clinicAddress"
+                        name="clinicAddress"
+                        value={formData.clinicAddress}
+                        onChange={handleChange}
+                        placeholder="e.g., Suite 404, City Heart Clinic"
+                        className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                      />
+                    </div>
+
+                    <div className="flex flex-col space-y-1 sm:col-span-2">
+                      <label htmlFor="bio" className="text-sm font-medium text-gray-700">Professional Bio</label>
+                      <textarea
+                        id="bio"
+                        name="bio"
+                        value={formData.bio}
+                        onChange={handleChange}
+                        rows="4"
+                        placeholder="Describe your background, specialty, and services..."
+                        className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                      ></textarea>
+                    </div>
                   </>
-                ) : (
-                  'Save Changes'
                 )}
-              </button>
+
+              </div>
+
+              {/* Submit Button Area */}
+              <div className="pt-4 flex items-center justify-end border-t border-gray-100">
+                <button
+                  type="submit"
+                  disabled={isProfileLoading}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-8 py-3 rounded-xl font-semibold transition-colors duration-200 shadow-sm flex items-center gap-2"
+                >
+                  {isProfileLoading ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full inline-block" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </button>
+              </div>
+
+            </form>
+          </div>
+        )}
+
+        {/* Change Password Tab (Only for Doctor) */}
+        {isDoctor && activeTab === 'password' && (
+          <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-10 animate-in fade-in duration-500">
+            <div className="flex items-center gap-4 mb-8 border-b border-gray-100 pb-6">
+              <div className="bg-teal-100 text-teal-700 w-16 h-16 rounded-full flex items-center justify-center text-3xl shadow-inner">
+                🔐
+              </div>
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-800">Change Password</h2>
+                <p className="text-gray-500 text-sm">Update your account password. Once updated, use your new password to sign in.</p>
+              </div>
             </div>
 
-          </form>
-        </div>
+            <form onSubmit={handlePasswordSubmit} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="currentPassword" className="text-sm font-medium text-gray-700">Current Password</label>
+                  <input
+                    type="password"
+                    id="currentPassword"
+                    name="currentPassword"
+                    value={passwordData.currentPassword}
+                    onChange={handlePasswordChange}
+                    required
+                    placeholder="••••••••"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="newPassword" className="text-sm font-medium text-gray-700">New Password</label>
+                  <input
+                    type="password"
+                    id="newPassword"
+                    name="newPassword"
+                    value={passwordData.newPassword}
+                    onChange={handlePasswordChange}
+                    required
+                    placeholder="••••••••"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">Confirm New Password</label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={passwordData.confirmPassword}
+                    onChange={handlePasswordChange}
+                    required
+                    placeholder="••••••••"
+                    className="px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-gray-800"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex items-center justify-end border-t border-gray-100">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="bg-teal-600 hover:bg-teal-700 disabled:bg-teal-400 text-white px-8 py-3 rounded-xl font-semibold transition-colors duration-200 shadow-sm flex items-center gap-2"
+                >
+                  {isChangingPassword ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent animate-spin rounded-full inline-block" />
+                      Updating...
+                    </>
+                  ) : (
+                    'Update Password'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
 
     </div>

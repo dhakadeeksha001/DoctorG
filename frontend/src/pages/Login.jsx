@@ -25,11 +25,16 @@ const Login = () => {
     }
 
     if (isSuccess || user) {
-      navigate('/');
+      const role = user?.role?.toLowerCase();
+      if (role === 'admin') {
+        navigate('/admin-dashboard');
+      } else if (role === 'doctor') {
+        navigate('/doctor-dashboard');
+      } else {
+        navigate('/');
+      }
       dispatch(reset())
     }
-
-
   }, [user, isError, isSuccess, message, navigate, dispatch])
 
 

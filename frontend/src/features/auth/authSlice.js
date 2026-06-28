@@ -83,6 +83,36 @@ export const updateProfile = createAsyncThunk('auth/update', async (userData, th
     }
 })
 
+export const updateDoctorProfile = createAsyncThunk('auth/updateDoctor', async (doctorData, thunkAPI) => {
+    try {
+        const token = thunkAPI.getState().auth.user?.token;
+        const response = await axios.put(`${API_URL}/doctor/profile`, doctorData, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+        if (response.data && response.data.success) {
+            const updatedUser = {
+                ...thunkAPI.getState().auth.user,
+                age: response.data.data.age,
+                gender: response.data.data.gender,
+                city: response.data.data.city,
+                experienceYears: response.data.data.experienceYears,
+                qualification: response.data.data.qualification,
+                bio: response.data.data.bio,
+                clinicAddress: response.data.data.clinicAddress,
+                consultationFee: response.data.data.consultationFee
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+            return updatedUser;
+        }
+        return thunkAPI.rejectWithValue("Failed to update doctor profile");
+    } catch (error) {
+        const message = (error.response && error.response.data && error.response.data.message) || error.message || error.toString();
+        return thunkAPI.rejectWithValue(message)
+    }
+})
+
 
 export const authSlice = createSlice({
     name: 'auth',
@@ -156,6 +186,19 @@ export const authSlice = createSlice({
                 state.isError = true;
                 state.message = action.payload;
 
+            })
+            .addCase(updateDoctorProfile.pending, (state) => {
+                state.isProfileLoading = true
+            })
+            .addCase(updateDoctorProfile.fulfilled, (state, action) => {
+                state.isProfileLoading = false
+                state.isSuccess = true;
+                state.user = action.payload;
+            })
+            .addCase(updateDoctorProfile.rejected, (state, action) => {
+                state.isProfileLoading = false
+                state.isError = true;
+                state.message = action.payload;
             })
     }
 })

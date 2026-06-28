@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Appointments from './pages/appointment';
 import InterviewRunner from './pages/InterviewRunner';
+import AdminDashboard from './pages/AdminDashboard';
+import DoctorDashboard from './pages/DoctorDashboard';
 import NotFound from './pages/NotFound';
 
 const App = () => {
@@ -26,6 +28,8 @@ const App = () => {
             <Route path='/appointment' element={<Appointments />} />
             <Route path='/profile' element={<Profile />} />
             <Route path='/session/:sessionId' element={<InterviewRunner />} />
+            <Route path='/admin-dashboard' element={<AdminDashboard />} />
+            <Route path='/doctor-dashboard' element={<DoctorDashboard />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
