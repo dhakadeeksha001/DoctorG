@@ -17,7 +17,15 @@ const AdminDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('manage'); // 'manage' | 'add'
   const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [viewingList, setViewingList] = useState('doctors'); // 'doctors' | 'patients'
+  const [stats, setStats] = useState({
+    totalPatients: 0,
+    activeSessions: 0,
+    totalDoctors: 0
+  });
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   
   // State for Add Doctor Form
   const [formData, setFormData] = useState({
@@ -44,9 +52,40 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchStats = async () => {
+    setIsLoadingStats(true);
+    try {
+      const response = await axios.get(`${API_URL}/admin/stats`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data && response.data.success) {
+        setStats(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch admin stats:", error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/admin/patients`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data && response.data.success) {
+        setPatients(response.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch patients:", error);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchDoctors();
+      fetchStats();
+      fetchPatients();
     }
   }, [token]);
 
@@ -75,6 +114,7 @@ const AdminDashboard = () => {
         setFormData({ name: '', email: '', password: '', specialty: '' });
         setActiveTab('manage');
         fetchDoctors();
+        fetchStats();
       }
     } catch (error) {
       const msg = error.response?.data?.message || error.message || "Failed to add doctor";
@@ -91,6 +131,7 @@ const AdminDashboard = () => {
         if (response.data && response.data.success) {
           toast.error(`${name} has been removed.`);
           fetchDoctors();
+          fetchStats();
         }
       } catch (error) {
         const msg = error.response?.data?.message || error.message || "Failed to remove doctor";
@@ -136,64 +177,116 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* --- View 1: Overview & Manage --- */}
+       {/* --- View 1: Overview & Manage --- */}
       {activeTab === 'manage' && (
         <div className="space-y-10">
           
           {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-teal-600 p-6 sm:p-8 rounded-3xl shadow-lg text-white flex flex-col justify-between">
+            <div 
+              onClick={() => setViewingList('patients')}
+              className={`p-6 sm:p-8 rounded-3xl shadow-lg text-white flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-[0.98] ${
+                viewingList === 'patients' ? 'bg-teal-600 ring-4 ring-teal-200' : 'bg-teal-700/80 hover:bg-teal-600'
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-widest text-teal-200 mb-2">Total Patients</p>
-              <h3 className="text-4xl font-black">{MOCK_STATS.totalPatients}</h3>
+              <h3 className="text-4xl font-black">{stats.totalPatients}</h3>
             </div>
-            <div className="bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-lg text-white flex flex-col justify-between">
+            <div 
+              onClick={() => setViewingList('doctors')}
+              className={`p-6 sm:p-8 rounded-3xl shadow-lg text-white flex flex-col justify-between cursor-pointer transition-all hover:scale-[1.03] active:scale-[0.98] ${
+                viewingList === 'doctors' ? 'bg-slate-900 ring-4 ring-slate-400' : 'bg-slate-800 hover:bg-slate-900'
+              }`}
+            >
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Registered Doctors</p>
-              <h3 className="text-4xl font-black">{doctors.length}</h3>
+              <h3 className="text-4xl font-black">{stats.totalDoctors || doctors.length}</h3>
             </div>
             <div className="bg-white border border-slate-100 p-6 sm:p-8 rounded-3xl shadow-sm flex flex-col justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Active AI Sessions</p>
-              <h3 className="text-4xl font-black text-slate-900">{MOCK_STATS.activeSessions}</h3>
+              <h3 className="text-4xl font-black text-slate-900">{stats.activeSessions}</h3>
             </div>
           </div>
 
-          <div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center px-2 mb-6">
-              <span className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mr-3 text-xl">👨‍⚕️</span>
-              Manage Doctors
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {doctors.map((doc) => (
-                <div key={doc.id} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-slate-100/50 flex flex-col h-full">
-                  
-                  <div className="mb-4">
-                    <h3 className="text-xl font-black text-slate-900">{doc.name}</h3>
-                    <p className="text-sm font-bold text-teal-600 mt-1">{doc.specialization || doc.specialty || 'General Practitioner'}</p>
-                    <p className="text-xs text-slate-400 mt-1">{doc.email}</p>
-                  </div>
-                  
-                  <div className="mt-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2 flex-1">
-                    <div className="flex items-center text-slate-600 text-sm font-semibold">
-                      <span className="w-5 text-slate-400 mr-2">⭐</span> Experience: {doc.experienceYears !== undefined && doc.experienceYears !== null ? `${doc.experienceYears} Years` : (doc.experience || 'N/A')}
+          {viewingList === 'doctors' ? (
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center px-2 mb-6">
+                <span className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mr-3 text-xl">👨‍⚕️</span>
+                Manage Doctors
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {doctors.map((doc) => (
+                  <div key={doc.id} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-slate-100/50 flex flex-col h-full">
+                    
+                    <div className="mb-4">
+                      <h3 className="text-xl font-black text-slate-900">{doc.name}</h3>
+                      <p className="text-sm font-bold text-teal-600 mt-1">{doc.specialization || doc.specialty || 'General Practitioner'}</p>
+                      <p className="text-xs text-slate-400 mt-1">{doc.email}</p>
                     </div>
-                    <div className="flex items-start text-slate-600 text-sm font-semibold">
-                      <span className="w-5 text-slate-400 mr-2 mt-0.5">🏥</span> <span className="flex-1">{doc.clinicAddress || doc.location || 'Online / Remote'}</span>
+                    
+                    <div className="mt-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2 flex-1">
+                      <div className="flex items-center text-slate-600 text-sm font-semibold">
+                        <span className="w-5 text-slate-400 mr-2">⭐</span> Experience: {doc.experienceYears !== undefined && doc.experienceYears !== null ? `${doc.experienceYears} Years` : (doc.experience || 'N/A')}
+                      </div>
+                      <div className="flex items-start text-slate-600 text-sm font-semibold">
+                        <span className="w-5 text-slate-400 mr-2 mt-0.5">🏥</span> <span className="flex-1">{doc.clinicAddress || doc.location || 'Online / Remote'}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Delete Action */}
-                  <div className="mt-6">
-                    <button 
-                      onClick={() => handleDeleteDoctor(doc.id, doc.name)}
-                      className="w-full bg-rose-50 text-rose-600 py-3 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all active:scale-[0.98]"
-                    >
-                      Remove Doctor
-                    </button>
+                    {/* Delete Action */}
+                    <div className="mt-6">
+                      <button 
+                        onClick={() => handleDeleteDoctor(doc.id, doc.name)}
+                        className="w-full bg-rose-50 text-rose-600 py-3 rounded-xl font-bold text-sm hover:bg-rose-100 transition-all active:scale-[0.98]"
+                      >
+                        Remove Doctor
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center px-2 mb-6">
+                <span className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center mr-3 text-xl">👥</span>
+                Registered Patients
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {patients.map((pat) => (
+                  <div key={pat.id} className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xl shadow-slate-100/50 flex flex-col h-full justify-between">
+                    <div>
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className="w-12 h-12 bg-teal-50 rounded-2xl flex items-center justify-center text-2xl shrink-0">
+                          👤
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-black text-slate-900 leading-tight">{pat.name}</h3>
+                          <p className="text-xs text-slate-400 mt-0.5">{pat.email}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex flex-col gap-2">
+                        <div className="flex items-center text-slate-600 text-sm font-semibold">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 w-16">Age</span>
+                          <span className="font-semibold text-slate-700">{pat.age ? `${pat.age} Years` : 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center text-slate-600 text-sm font-semibold">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 w-16">Gender</span>
+                          <span className="font-semibold text-slate-700">{pat.gender || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-center text-slate-600 text-sm font-semibold">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 w-16">City</span>
+                          <span className="font-semibold text-slate-700">{pat.city || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -15,6 +15,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.docG.DoctorG.dto.response.AdminStatsResponse;
+import com.docG.DoctorG.dto.response.UserResponse;
+import com.docG.DoctorG.mapper.userMapper;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.Set;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -25,6 +30,7 @@ public class AdminServiceImpl implements AdminService {
     private final DoctorProfileRepository doctorProfileRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StringRedisTemplate redisTemplate;
 
     @Override
     @Transactional
@@ -76,5 +82,30 @@ public class AdminServiceImpl implements AdminService {
 
         // Delete user
         userRepository.delete(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminStatsResponse getStats() {
+        long totalPatients = userRepository.countByRole(Role.PATIENT);
+        long totalDoctors = userRepository.countByRole(Role.DOCTOR);
+        
+        Set<String> keys = redisTemplate.keys("chat:*");
+        long activeSessions = keys != null ? keys.size() : 0;
+
+        return AdminStatsResponse.builder()
+                .totalPatients(totalPatients)
+                .totalDoctors(totalDoctors)
+                .activeSessions(activeSessions)
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.List<UserResponse> getPatients() {
+        return userRepository.findByRole(Role.PATIENT)
+                .stream()
+                .map(userMapper::toUserResponse)
+                .toList();
     }
 }
