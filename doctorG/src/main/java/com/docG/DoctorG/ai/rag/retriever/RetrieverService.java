@@ -19,26 +19,38 @@ public class RetrieverService {
     private final EmbeddingService embeddingService;
     private final String qdrantHost;
     private final int qdrantPort;
+    private final String qdrantApiKey;
+    private final boolean qdrantUseTls;
+    private final int qdrantDimension;
 
     public RetrieverService(
             EmbeddingService embeddingService,
             @org.springframework.beans.factory.annotation.Value("${qdrant.host:localhost}") String qdrantHost,
-            @org.springframework.beans.factory.annotation.Value("${qdrant.port:6334}") int qdrantPort) {
+            @org.springframework.beans.factory.annotation.Value("${qdrant.port:6334}") int qdrantPort,
+            @org.springframework.beans.factory.annotation.Value("${qdrant.api-key:}") String qdrantApiKey,
+            @org.springframework.beans.factory.annotation.Value("${qdrant.use-tls:false}") boolean qdrantUseTls,
+            @org.springframework.beans.factory.annotation.Value("${embedding.dimension:768}") int qdrantDimension) {
         this.embeddingService = embeddingService;
         this.qdrantHost = qdrantHost;
         this.qdrantPort = qdrantPort;
+        this.qdrantApiKey = qdrantApiKey;
+        this.qdrantUseTls = qdrantUseTls;
+        this.qdrantDimension = qdrantDimension;
+        
+        var grpcBuilder = io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, qdrantUseTls);
+        if (qdrantApiKey != null && !qdrantApiKey.isBlank()) {
+            grpcBuilder.withApiKey(qdrantApiKey);
+        }
         
         // Ensure the Qdrant collection exists before initializing QdrantEmbeddingStore
-        try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(
-                io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, false).build()
-        )) {
+        try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(grpcBuilder.build())) {
             String collectionName = "medical_docs";
             try {
                 client.createCollectionAsync(
                         collectionName,
                         io.qdrant.client.grpc.Collections.VectorParams.newBuilder()
                                 .setDistance(io.qdrant.client.grpc.Collections.Distance.Cosine)
-                                .setSize(768)
+                                .setSize(qdrantDimension)
                                 .build()
                 ).get();
             } catch (Exception e) {
@@ -48,7 +60,7 @@ public class RetrieverService {
             throw new RuntimeException("Failed to initialize Qdrant collection", e);
         }
 
-        this.embeddingStore = new CustomQdrantEmbeddingStore(qdrantHost, qdrantPort, "medical_docs");
+        this.embeddingStore = new CustomQdrantEmbeddingStore(qdrantHost, qdrantPort, qdrantApiKey, qdrantUseTls, "medical_docs");
     }
 
     public List<TextSegment> retrieve(String query, int maxResults, double minScore) {
@@ -68,9 +80,12 @@ public class RetrieverService {
     }
 
     public void clearCollection() {
-        try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(
-                io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, false).build()
-        )) {
+        var grpcBuilder = io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, qdrantUseTls);
+        if (qdrantApiKey != null && !qdrantApiKey.isBlank()) {
+            grpcBuilder.withApiKey(qdrantApiKey);
+        }
+        
+        try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(grpcBuilder.build())) {
             String collectionName = "medical_docs";
             try {
                 client.deleteCollectionAsync(collectionName).get();
@@ -81,7 +96,7 @@ public class RetrieverService {
                     collectionName,
                     io.qdrant.client.grpc.Collections.VectorParams.newBuilder()
                             .setDistance(io.qdrant.client.grpc.Collections.Distance.Cosine)
-                            .setSize(768)
+                            .setSize(qdrantDimension)
                             .build()
             ).get();
         } catch (Exception e) {

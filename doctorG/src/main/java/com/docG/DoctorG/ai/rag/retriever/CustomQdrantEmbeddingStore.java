@@ -22,17 +22,31 @@ public class CustomQdrantEmbeddingStore implements EmbeddingStore<TextSegment> {
     private final QdrantEmbeddingStore delegate;
     private final String host;
     private final int port;
+    private final String apiKey;
+    private final boolean useTls;
     private final String collectionName;
 
-    public CustomQdrantEmbeddingStore(String host, int port, String collectionName) {
+    public CustomQdrantEmbeddingStore(String host, int port, String apiKey, boolean useTls, String collectionName) {
         this.host = host;
         this.port = port;
+        this.apiKey = apiKey;
+        this.useTls = useTls;
         this.collectionName = collectionName;
-        this.delegate = QdrantEmbeddingStore.builder()
+        
+        var builder = QdrantEmbeddingStore.builder()
                 .host(host)
                 .port(port)
-                .collectionName(collectionName)
-                .build();
+                .collectionName(collectionName);
+                
+        if (useTls) {
+            builder.useTls(true);
+        }
+        
+        if (apiKey != null && !apiKey.isBlank()) {
+            builder.apiKey(apiKey);
+        }
+                
+        this.delegate = builder.build();
     }
 
     @Override
@@ -62,9 +76,12 @@ public class CustomQdrantEmbeddingStore implements EmbeddingStore<TextSegment> {
 
     @Override
     public EmbeddingSearchResult<TextSegment> search(EmbeddingSearchRequest request) {
-        try (QdrantClient client = new QdrantClient(
-                QdrantGrpcClient.newBuilder(host, port, false).build()
-        )) {
+        var grpcBuilder = QdrantGrpcClient.newBuilder(host, port, useTls);
+        if (apiKey != null && !apiKey.isBlank()) {
+            grpcBuilder.withApiKey(apiKey);
+        }
+        
+        try (QdrantClient client = new QdrantClient(grpcBuilder.build())) {
             SearchPoints searchPoints = SearchPoints.newBuilder()
                     .setCollectionName(collectionName)
                     .addAllVector(request.queryEmbedding().vectorAsList())

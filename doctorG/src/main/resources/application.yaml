@@ -46,3 +46,19 @@ llm:
     api-key: ${GROQ_API_KEY}
     symptom-model: ${GROQ_SYMPTOM_MODEL:allam-2-7b}
     care-model: ${GROQ_CARE_MODEL:qwen/qwen3.6-27b}
+
+embedding:
+  provider: ${EMBEDDING_PROVIDER:ollama}
+  dimension: ${EMBEDDING_DIMENSION:768}
+  ollama:
+    base-url: ${OLLAMA_EMBEDDING_BASE_URL:http://localhost:11434}
+    model-name: ${OLLAMA_EMBEDDING_MODEL:nomic-embed-text}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model-name: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-2}
+  
+qdrant:
+  host: ${QDRANT_HOST:localhost}
+  port: ${QDRANT_PORT:6334}
+  api-key: ${QDRANT_API_KEY:}
+  use-tls: ${QDRANT_USE_TLS:false}
