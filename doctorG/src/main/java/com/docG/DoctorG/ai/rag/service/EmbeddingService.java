@@ -11,10 +11,12 @@ public class EmbeddingService {
 
     private final EmbeddingModel embeddingModel;
 
-    public EmbeddingService() {
+    public EmbeddingService(
+            @org.springframework.beans.factory.annotation.Value("${langchain4j.ollama.embedding-model.base-url:http://localhost:11434}") String baseUrl,
+            @org.springframework.beans.factory.annotation.Value("${langchain4j.ollama.embedding-model.model-name:nomic-embed-text}") String modelName) {
         this.embeddingModel = OllamaEmbeddingModel.builder()
-                .baseUrl("http://localhost:11434")
-                .modelName("nomic-embed-text")
+                .baseUrl(baseUrl)
+                .modelName(modelName)
                 .build();
     }
 

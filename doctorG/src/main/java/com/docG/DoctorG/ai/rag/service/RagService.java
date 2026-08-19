@@ -6,8 +6,8 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.ollama.OllamaChatModel;
 import com.docG.DoctorG.ai.rag.retriever.RetrieverService;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +19,9 @@ public class RagService {
     private final RetrieverService retrieverService;
     private final ChatLanguageModel chatModel;
 
-    public RagService(RetrieverService retrieverService) {
+    public RagService(RetrieverService retrieverService, @Qualifier("careChatModel") ChatLanguageModel chatModel) {
         this.retrieverService = retrieverService;
-        this.chatModel = OllamaChatModel.builder()
-                .baseUrl("http://localhost:11434")
-                .modelName("qwen3:1.7b")
-                .temperature(0.2)
-                .build();
+        this.chatModel = chatModel;
     }
 
     public String generateHomeCareAdvice(String userQuery) {

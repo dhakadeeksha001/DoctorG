@@ -1,26 +1,48 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/DocG
-    username: postgres
-    password: 'Deeksha@001'
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
 
   jpa:
     hibernate:
       ddl-auto: update
-
     show-sql: true
-
     properties:
       hibernate:
         format_sql: true
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+jwt:
+  secret: ${JWT_SECRET:mysecretkeymysecretkeymysecretkeymysecretkey}
+
+logging:
+  level:
+    root: ${LOGGING_LEVEL_ROOT:INFO}
+
 langchain4j:
   ollama:
     chat-model:
-      base-url: http://localhost:11434
-      model-name: qwen3:1.7b
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      model-name: ${OLLAMA_MODEL_NAME:qwen3:1.7b}
       temperature: 0.1
       timeout: PT3M
+
+
+llm:
+  local:
+    url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    symptom-model: ${OLLAMA_MODEL_NAME:qwen3:1.7b}
+    care-model: ${OLLAMA_MODEL_NAME:qwen3:1.7b}
+
+  groq:
+    api-key: ${GROQ_API_KEY}
+    symptom-model: ${GROQ_SYMPTOM_MODEL:allam-2-7b}
+    care-model: ${GROQ_CARE_MODEL:qwen/qwen3.6-27b}

@@ -17,13 +17,20 @@ public class RetrieverService {
 
     private final EmbeddingStore<TextSegment> embeddingStore;
     private final EmbeddingService embeddingService;
+    private final String qdrantHost;
+    private final int qdrantPort;
 
-    public RetrieverService(EmbeddingService embeddingService) {
+    public RetrieverService(
+            EmbeddingService embeddingService,
+            @org.springframework.beans.factory.annotation.Value("${qdrant.host:localhost}") String qdrantHost,
+            @org.springframework.beans.factory.annotation.Value("${qdrant.port:6334}") int qdrantPort) {
         this.embeddingService = embeddingService;
+        this.qdrantHost = qdrantHost;
+        this.qdrantPort = qdrantPort;
         
         // Ensure the Qdrant collection exists before initializing QdrantEmbeddingStore
         try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(
-                io.qdrant.client.QdrantGrpcClient.newBuilder("localhost", 6334, false).build()
+                io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, false).build()
         )) {
             String collectionName = "medical_docs";
             try {
@@ -41,7 +48,7 @@ public class RetrieverService {
             throw new RuntimeException("Failed to initialize Qdrant collection", e);
         }
 
-        this.embeddingStore = new CustomQdrantEmbeddingStore("localhost", 6334, "medical_docs");
+        this.embeddingStore = new CustomQdrantEmbeddingStore(qdrantHost, qdrantPort, "medical_docs");
     }
 
     public List<TextSegment> retrieve(String query, int maxResults, double minScore) {
@@ -62,7 +69,7 @@ public class RetrieverService {
 
     public void clearCollection() {
         try (io.qdrant.client.QdrantClient client = new io.qdrant.client.QdrantClient(
-                io.qdrant.client.QdrantGrpcClient.newBuilder("localhost", 6334, false).build()
+                io.qdrant.client.QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, false).build()
         )) {
             String collectionName = "medical_docs";
             try {
