@@ -41,9 +41,16 @@ public class SecurityConfig {
 
                                                 .requestMatchers(
                                                                 "/api/auth/**",
-                                                                "/api/medical-advice/**",
+                                                                "/api/medical-advice/query",
                                                                 "/health")
                                                 .permitAll()
+
+                                                .requestMatchers(
+                                                                "/api/medical-advice/upload",
+                                                                "/api/medical-advice/ingest",
+                                                                "/api/medical-advice/clear",
+                                                                "/api/medical-advice/documents/**")
+                                                .hasRole("ADMIN")
 
                                                 .requestMatchers(
                                                                 "/api/admin/**")
