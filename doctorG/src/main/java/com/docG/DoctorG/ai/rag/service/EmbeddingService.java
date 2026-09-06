@@ -13,6 +13,7 @@ public class EmbeddingService {
 
     public EmbeddingService(
             @org.springframework.beans.factory.annotation.Value("${embedding.provider:ollama}") String provider,
+            @org.springframework.beans.factory.annotation.Value("${embedding.dimension:768}") Integer dimension,
             @org.springframework.beans.factory.annotation.Value("${embedding.ollama.base-url:http://localhost:11434}") String ollamaBaseUrl,
             @org.springframework.beans.factory.annotation.Value("${embedding.ollama.model-name:nomic-embed-text}") String ollamaModelName,
             @org.springframework.beans.factory.annotation.Value("${embedding.openai.base-url:}") String openAiBaseUrl,
@@ -21,7 +22,15 @@ public class EmbeddingService {
             @org.springframework.beans.factory.annotation.Value("${embedding.gemini.api-key:}") String geminiApiKey,
             @org.springframework.beans.factory.annotation.Value("${embedding.gemini.model-name:gemini-embedding-2}") String geminiModelName) {
             
-        if ("openai".equalsIgnoreCase(provider)) {
+        String resolvedProvider = provider;
+        if ("ollama".equalsIgnoreCase(resolvedProvider)) {
+            if (!isOllamaAvailable(ollamaBaseUrl)) {
+                System.out.println("WARN: Ollama is unreachable at " + ollamaBaseUrl + ". Falling back to Gemini embedding provider.");
+                resolvedProvider = "gemini";
+            }
+        }
+
+        if ("openai".equalsIgnoreCase(resolvedProvider)) {
             var builder = dev.langchain4j.model.openai.OpenAiEmbeddingModel.builder()
                     .modelName(openAiModelName);
             if (openAiBaseUrl != null && !openAiBaseUrl.isBlank()) {
@@ -31,18 +40,33 @@ public class EmbeddingService {
                 builder.apiKey(openAiApiKey);
             }
             this.embeddingModel = builder.build();
-        } else if ("gemini".equalsIgnoreCase(provider)) {
+        } else if ("gemini".equalsIgnoreCase(resolvedProvider)) {
             this.embeddingModel = dev.langchain4j.model.googleai.GoogleAiEmbeddingModel.builder()
                     .apiKey(geminiApiKey)
                     .modelName(geminiModelName)
+                    .outputDimensionality(dimension)
                     .build();
-        } else if ("ollama".equalsIgnoreCase(provider)) {
+        } else if ("ollama".equalsIgnoreCase(resolvedProvider)) {
             this.embeddingModel = OllamaEmbeddingModel.builder()
                     .baseUrl(ollamaBaseUrl)
                     .modelName(ollamaModelName)
                     .build();
         } else {
-            throw new IllegalArgumentException("Unknown embedding provider: " + provider);
+            throw new IllegalArgumentException("Unknown embedding provider: " + resolvedProvider);
+        }
+    }
+
+    private boolean isOllamaAvailable(String urlStr) {
+        try {
+            java.net.URL url = new java.net.URL(urlStr);
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(1000); // 1 second connection timeout
+            connection.setReadTimeout(1000);
+            int responseCode = connection.getResponseCode();
+            return responseCode == 200 || responseCode == 204;
+        } catch (Exception e) {
+            return false;
         }
     }
 
