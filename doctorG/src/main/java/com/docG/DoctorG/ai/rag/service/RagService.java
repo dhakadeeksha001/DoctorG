@@ -6,6 +6,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import com.docG.DoctorG.ai.rag.prompt.MedicalAdvicePrompt;
 import com.docG.DoctorG.ai.rag.retriever.RetrieverService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -26,23 +27,14 @@ public class RagService {
 
     public String generateHomeCareAdvice(String userQuery) {
         // Retrieve relevant context segments
-        List<TextSegment> relevantSegments = retrieverService.retrieve(userQuery, 2, 0.4);
+        List<TextSegment> relevantSegments = retrieverService.retrieve(userQuery, 2, 0.7);
         
         String context = relevantSegments.stream()
                 .map(TextSegment::text)
                 .collect(Collectors.joining("\n\n"));
 
-        // Build prompt with system constraints
-        String systemInstructions = 
-            "You are DoctorG, an educational home care assistant.\n" +
-            "Your behavior must adhere to these rules strictly:\n" +
-            "1. Use the provided context from trusted medical documents to generate evidence-based home care recommendations.\n" +
-            "2. NEVER diagnose diseases or identify specific conditions. If asked, refuse to diagnose.\n" +
-            "3. NEVER prescribe or suggest specific medications. If asked for prescriptions, refuse.\n" +
-            "4. Always provide warning signs indicating when to seek urgent/emergency care.\n" +
-            "5. Suggest professional consultation when appropriate.\n" +
-            "6. Answer in maximum 3 sentences only.\n\n" +
-            "Context:\n" + context;
+        // Build prompt with system constraints using central prompt component
+        String systemInstructions = MedicalAdvicePrompt.buildSystemPrompt(context);
 
         List<ChatMessage> messages = new ArrayList<>();
         messages.add(SystemMessage.from(systemInstructions));

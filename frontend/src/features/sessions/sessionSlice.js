@@ -53,8 +53,25 @@ export const getSessions = createAsyncThunk('sessions/getAll', async (_, thunkAP
 export const getSessionById = createAsyncThunk('sessions/getOne', async (sessionId, thunkAPI) => {
     try {
         const sessions = getStoredSessions();
-        const session = sessions.find(s => s._id === sessionId);
-        if (!session) throw new Error("Session not found");
+        let session = sessions.find(s => s._id === sessionId);
+        if (!session) {
+            // Fallback: auto-create missing session so user is never blocked with "Session not found"
+            session = {
+                _id: sessionId,
+                status: "in-progress",
+                startTime: new Date().toISOString(),
+                endTime: null,
+                messages: [
+                    {
+                        role: "assistant",
+                        content: "Hello! I am DoctorG, your AI health assistant. What symptoms or medical concerns have you been experiencing recently?"
+                    }
+                ],
+                medicalAdvice: null
+            };
+            sessions.unshift(session);
+            saveStoredSessions(sessions);
+        }
         return session;
     } catch (error) {
         return thunkAPI.rejectWithValue(error.message);
@@ -97,8 +114,24 @@ export const createSession = createAsyncThunk('sessions/create', async (_, thunk
 export const submitMessage = createAsyncThunk('sessions/submitMessage', async ({ sessionId, messageText }, thunkAPI) => {
     try {
         const sessions = getStoredSessions();
-        const sessionIndex = sessions.findIndex(s => s._id === sessionId);
-        if (sessionIndex === -1) throw new Error("Session not found");
+        let sessionIndex = sessions.findIndex(s => s._id === sessionId);
+        if (sessionIndex === -1) {
+            const fallbackSession = {
+                _id: sessionId,
+                status: "in-progress",
+                startTime: new Date().toISOString(),
+                endTime: null,
+                messages: [
+                    {
+                        role: "assistant",
+                        content: "Hello! I am DoctorG, your AI health assistant. What symptoms or medical concerns have you been experiencing recently?"
+                    }
+                ],
+                medicalAdvice: null
+            };
+            sessions.unshift(fallbackSession);
+            sessionIndex = 0;
+        }
         const session = sessions[sessionIndex];
 
         // Add user message immediately
@@ -113,18 +146,25 @@ export const submitMessage = createAsyncThunk('sessions/submitMessage', async ({
         
         const replyText = response.data?.reply || "I understand. Could you tell me more?";
         
-        // Add AI response
-        session.messages.push({ role: 'assistant', content: replyText });
+        // Format transcript BEFORE pushing assistant message or checking completion
+        const transcript = session.messages.map(m => 
+            `${m.role === 'user' ? 'Patient' : 'Doctor'}: ${m.content}`
+        ).join('\n\n');
+
+        const isComplete = replyText.toUpperCase().includes('COLLECTION_COMPLETE');
+
+        // Add AI response (user-friendly message if collection is complete)
+        const displayReply = isComplete 
+            ? "Thank you! I have gathered all necessary symptom details. Generating your medical advice report..." 
+            : replyText;
+            
+        session.messages.push({ role: 'assistant', content: displayReply });
 
         // Check if collection is complete
-        if (replyText.toUpperCase().includes('COLLECTION_COMPLETE')) {
-            const transcript = session.messages.map(m => 
-                `${m.role === 'user' ? 'Patient' : 'Doctor'}: ${m.content}`
-            ).join('\n\n');
-
+        if (isComplete) {
             try {
                 const adviceResponse = await api.post('/medical-advice/query', {
-                    query: `&{transcript}`
+                    query: `Analyze this patient transcript and provide structured medical advice, possible conditions, and home care recommendations.\n\nTranscript:\n${transcript}`
                 });
                 const finalAdvice = adviceResponse.data?.data || adviceResponse.data?.advice || "No advice generated.";
                 session.status = 'completed';
@@ -149,8 +189,19 @@ export const submitMessage = createAsyncThunk('sessions/submitMessage', async ({
 export const endSession = createAsyncThunk('sessions/endSession', async (sessionId, thunkAPI) => {
     try {
         const sessions = getStoredSessions();
-        const sessionIndex = sessions.findIndex(s => s._id === sessionId);
-        if (sessionIndex === -1) throw new Error("Session not found");
+        let sessionIndex = sessions.findIndex(s => s._id === sessionId);
+        if (sessionIndex === -1) {
+            const fallbackSession = {
+                _id: sessionId,
+                status: "in-progress",
+                startTime: new Date().toISOString(),
+                endTime: null,
+                messages: [],
+                medicalAdvice: null
+            };
+            sessions.unshift(fallbackSession);
+            sessionIndex = 0;
+        }
         const session = sessions[sessionIndex];
         
         // Format the chat history into a transcript string for the AI to read
